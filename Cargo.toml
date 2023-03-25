@@ -13,7 +13,7 @@ categories = ["game-engines", "multimedia::images"]
 edition = "2018"
 
 [dependencies]
-simdeez = { git = "https://github.com/arduano/simdeez.git", rev = "c0743a1" }
+simdeez = { path = "/home/arduano/programming/simdeez" }
 #simdeez = {path = "../simdeez"}
 
 [dev-dependencies]
@@ -23,3 +23,11 @@ byteorder = "1.4.3"
 [[bench]]
 name = "benchmarks"
 harness = false
+
+[profile.bench]
+lto = true
+codegen-units = 1
+
+[profile.release]
+lto = true
+codegen-units = 1

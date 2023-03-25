@@ -96,19 +96,19 @@ pub unsafe fn cellular2_3d<S: Simd>(
     seed: i32,
 ) -> S::Vf32 {
     simd_invoke!(S, {
-        let mut distance: [S::Vf32; 4] = [S::set1_ps(999999.0); 4];
+        let mut distance: [S::Vf32; 4] = [S::Vf32::set1(999999.0); 4];
 
-        let mut xc = S::sub_epi32(S::cvtps_epi32(x), S::set1_epi32(1));
-        let mut yc_base = S::sub_epi32(S::cvtps_epi32(y), S::set1_epi32(1));
-        let mut zc_base = S::sub_epi32(S::cvtps_epi32(z), S::set1_epi32(1));
+        let mut xc = x.cast_i32() - 1;
+        let mut yc_base = y.cast_i32() - 1;
+        let mut zc_base = z.cast_i32() - 1;
 
-        let mut xcf = S::sub_ps(S::cvtepi32_ps(xc), x);
-        let ycf_base = S::sub_ps(S::cvtepi32_ps(yc_base), y);
-        let zcf_base = S::sub_ps(S::cvtepi32_ps(zc_base), z);
+        let mut xcf = xc.cast_f32() - x;
+        let ycf_base = yc_base.cast_f32() - y;
+        let zcf_base = zc_base.cast_f32() - z;
 
-        xc = S::mullo_epi32(xc, S::set1_epi32(X_PRIME_32));
-        yc_base = S::mullo_epi32(yc_base, S::set1_epi32(Y_PRIME_32));
-        zc_base = S::mullo_epi32(zc_base, S::set1_epi32(Z_PRIME_32));
+        xc = xc * S::Vi32::set1(X_PRIME_32);
+        yc_base = yc_base * S::Vi32::set1(Y_PRIME_32);
+        zc_base = zc_base * S::Vi32::set1(Z_PRIME_32);
 
         for _x in 0..3 {
             let mut ycf = ycf_base;
