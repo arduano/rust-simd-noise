@@ -11,7 +11,7 @@ fn d4(c: &mut Criterion) {
     let setting = NoiseBuilder::fbm_4d(8, 8, 8, 8).wrap();
     let mut group = c.benchmark_group("fbm4d");
     group.bench_function("scalar 4d", move |b| {
-        b.iter(|| unsafe { scalar::get_4d_noise(&setting) })
+        b.iter(|| scalar::get_4d_noise(&setting))
     });
     group.bench_function("sse2 4d", move |b| {
         b.iter(|| unsafe { sse2::get_4d_noise(&setting) })
@@ -32,7 +32,7 @@ fn d3(c: &mut Criterion) {
     let setting = NoiseBuilder::fbm_3d(64, 64, 64).wrap();
     let mut group = c.benchmark_group("fbm3d");
     group.bench_function("scalar 3d", move |b| {
-        b.iter(|| unsafe { scalar::get_3d_noise(&setting) })
+        b.iter(|| scalar::get_3d_noise(&setting))
     });
     group.bench_function("sse2 3d", move |b| {
         b.iter(|| unsafe { sse2::get_3d_noise(&setting) })
@@ -53,7 +53,7 @@ fn d2(c: &mut Criterion) {
     let setting = NoiseBuilder::fbm_2d(3840, 2160).wrap();
     let mut group = c.benchmark_group("fbm2d");
     group.bench_function("scalar 2d", move |b| {
-        b.iter(|| unsafe { scalar::get_2d_noise(&setting) })
+        b.iter(|| scalar::get_2d_noise(&setting))
     });
     group.bench_function("sse2 2d", move |b| {
         b.iter(|| unsafe { sse2::get_2d_noise(&setting) })
@@ -74,7 +74,7 @@ fn d1(c: &mut Criterion) {
     let setting = NoiseBuilder::fbm_1d(1024).wrap();
     let mut group = c.benchmark_group("fbm1d");
     group.bench_function("scalar 1d", move |b| {
-        b.iter(|| unsafe { scalar::get_1d_noise(&setting) })
+        b.iter(|| scalar::get_1d_noise(&setting))
     });
     group.bench_function("sse2 1d", move |b| {
         b.iter(|| unsafe { sse2::get_1d_noise(&setting) })
@@ -97,7 +97,7 @@ fn d2_cell(c: &mut Criterion) {
         .wrap();
     let mut group = c.benchmark_group("cellular2d");
     group.bench_function("scalar 2d", move |b| {
-        b.iter(|| unsafe { scalar::get_2d_noise(&setting) })
+        b.iter(|| scalar::get_2d_noise(&setting))
     });
     group.bench_function("sse2 2d", move |b| {
         b.iter(|| unsafe { sse2::get_2d_noise(&setting) })
@@ -118,7 +118,7 @@ fn d3_cell(c: &mut Criterion) {
     let setting = NoiseBuilder::cellular_3d(128, 128, 128).wrap();
     let mut group = c.benchmark_group("cellular3d");
     group.bench_function("scalar 3d", move |b| {
-        b.iter(|| unsafe { scalar::get_3d_noise(&setting) })
+        b.iter(|| scalar::get_3d_noise(&setting))
     });
     group.bench_function("sse2 3d", move |b| {
         b.iter(|| unsafe { sse2::get_3d_noise(&setting) })

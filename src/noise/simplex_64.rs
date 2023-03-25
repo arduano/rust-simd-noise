@@ -1,6 +1,6 @@
 use crate::noise::gradient_64::{grad1, grad2, grad3d, grad4};
 
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 use crate::noise::simplex_32::{
     F2_64, F3_64, F4_64, G22_64, G24_64, G2_64, G34_64, G3_64, G44_64, G4_64,
@@ -39,28 +39,30 @@ const PERM64: [i64; 512] = [
 /// Produces a value -1 ≤ n ≤ 1.
 #[inline(always)]
 pub unsafe fn simplex_1d<S: Simd>(x: S::Vf64, seed: i64) -> S::Vf64 {
-    let ipd = S::fast_floor_pd(x);
-    let mut i0 = S::cvtpd_epi64(ipd);
-    let i1 = S::and_epi64(S::add_epi64(i0, S::set1_epi64(1)), S::set1_epi64(0xff));
+    simd_invoke!(S, {
+        let ipd = S::fast_floor_pd(x);
+        let mut i0 = S::cvtpd_epi64(ipd);
+        let i1 = S::and_epi64(S::add_epi64(i0, S::set1_epi64(1)), S::set1_epi64(0xff));
 
-    let x0 = S::sub_pd(x, ipd);
-    let x1 = S::sub_pd(x0, S::set1_pd(1.0));
+        let x0 = S::sub_pd(x, ipd);
+        let x1 = S::sub_pd(x0, S::set1_pd(1.0));
 
-    i0 = S::and_epi64(i0, S::set1_epi64(0xff));
-    let gi0 = S::i64gather_epi64(&PERM64, i0);
-    let gi1 = S::i64gather_epi64(&PERM64, i1);
+        i0 = S::and_epi64(i0, S::set1_epi64(0xff));
+        let gi0 = S::i64gather_epi64(&PERM64, i0);
+        let gi1 = S::i64gather_epi64(&PERM64, i1);
 
-    let mut t0 = S::sub_pd(S::set1_pd(1.0), S::mul_pd(x0, x0));
-    t0 = S::mul_pd(t0, t0);
-    t0 = S::mul_pd(t0, t0);
-    let n0 = S::mul_pd(t0, grad1::<S>(seed, gi0, x0));
+        let mut t0 = S::sub_pd(S::set1_pd(1.0), S::mul_pd(x0, x0));
+        t0 = S::mul_pd(t0, t0);
+        t0 = S::mul_pd(t0, t0);
+        let n0 = S::mul_pd(t0, grad1::<S>(seed, gi0, x0));
 
-    let mut t1 = S::sub_pd(S::set1_pd(1.0), S::mul_pd(x1, x1));
-    t1 = S::mul_pd(t1, t1);
-    t1 = S::mul_pd(t1, t1);
-    let n1 = S::mul_pd(t1, grad1::<S>(seed, gi1, x1));
+        let mut t1 = S::sub_pd(S::set1_pd(1.0), S::mul_pd(x1, x1));
+        t1 = S::mul_pd(t1, t1);
+        t1 = S::mul_pd(t1, t1);
+        let n1 = S::mul_pd(t1, grad1::<S>(seed, gi1, x1));
 
-    S::add_pd(n0, n1) * S::set1_pd(256.0 / (81.0 * 7.0))
+        S::add_pd(n0, n1) * S::set1_pd(256.0 / (81.0 * 7.0))
+    })
 }
 
 /// Samples 2-dimensional simplex noise
@@ -68,252 +70,256 @@ pub unsafe fn simplex_1d<S: Simd>(x: S::Vf64, seed: i64) -> S::Vf64 {
 /// Produces a value -1 ≤ n ≤ 1.
 #[inline(always)]
 pub unsafe fn simplex_2d<S: Simd>(x: S::Vf64, y: S::Vf64, seed: i64) -> S::Vf64 {
-    let s = S::mul_pd(S::set1_pd(F2_64), S::add_pd(x, y));
-    let ipd = S::floor_pd(S::add_pd(x, s));
-    let jpd = S::floor_pd(S::add_pd(y, s));
+    simd_invoke!(S, {
+        let s = S::mul_pd(S::set1_pd(F2_64), S::add_pd(x, y));
+        let ipd = S::floor_pd(S::add_pd(x, s));
+        let jpd = S::floor_pd(S::add_pd(y, s));
 
-    let i = S::cvtpd_epi64(ipd);
-    let j = S::cvtpd_epi64(jpd);
+        let i = S::cvtpd_epi64(ipd);
+        let j = S::cvtpd_epi64(jpd);
 
-    let t = S::mul_pd(S::cvtepi64_pd(S::add_epi64(i, j)), S::set1_pd(G2_64));
+        let t = S::mul_pd(S::cvtepi64_pd(S::add_epi64(i, j)), S::set1_pd(G2_64));
 
-    let x0 = S::sub_pd(x, S::sub_pd(ipd, t));
-    let y0 = S::sub_pd(y, S::sub_pd(jpd, t));
+        let x0 = S::sub_pd(x, S::sub_pd(ipd, t));
+        let y0 = S::sub_pd(y, S::sub_pd(jpd, t));
 
-    let i1 = S::castpd_epi64(S::cmpge_pd(x0, y0));
+        let i1 = S::castpd_epi64(S::cmpge_pd(x0, y0));
 
-    let j1 = S::castpd_epi64(S::cmpgt_pd(y0, x0));
+        let j1 = S::castpd_epi64(S::cmpgt_pd(y0, x0));
 
-    let x1 = S::add_pd(S::add_pd(x0, S::cvtepi64_pd(i1)), S::set1_pd(G2_64));
-    let y1 = S::add_pd(S::add_pd(y0, S::cvtepi64_pd(j1)), S::set1_pd(G2_64));
-    let x2 = S::add_pd(S::add_pd(x0, S::set1_pd(-1.0)), S::set1_pd(G22_64));
-    let y2 = S::add_pd(S::add_pd(y0, S::set1_pd(-1.0)), S::set1_pd(G22_64));
+        let x1 = S::add_pd(S::add_pd(x0, S::cvtepi64_pd(i1)), S::set1_pd(G2_64));
+        let y1 = S::add_pd(S::add_pd(y0, S::cvtepi64_pd(j1)), S::set1_pd(G2_64));
+        let x2 = S::add_pd(S::add_pd(x0, S::set1_pd(-1.0)), S::set1_pd(G22_64));
+        let y2 = S::add_pd(S::add_pd(y0, S::set1_pd(-1.0)), S::set1_pd(G22_64));
 
-    let ii = S::and_epi64(i, S::set1_epi64(0xff));
-    let jj = S::and_epi64(j, S::set1_epi64(0xff));
+        let ii = S::and_epi64(i, S::set1_epi64(0xff));
+        let jj = S::and_epi64(j, S::set1_epi64(0xff));
 
-    let gi0 = S::i64gather_epi64(&PERM64, S::add_epi64(ii, S::i64gather_epi64(&PERM64, jj)));
+        let gi0 = S::i64gather_epi64(&PERM64, S::add_epi64(ii, S::i64gather_epi64(&PERM64, jj)));
 
-    let gi1 = S::i64gather_epi64(
-        &PERM64,
-        S::add_epi64(
-            S::sub_epi64(ii, i1),
-            S::i64gather_epi64(&PERM64, S::sub_epi64(jj, j1)),
-        ),
-    );
+        let gi1 = S::i64gather_epi64(
+            &PERM64,
+            S::add_epi64(
+                S::sub_epi64(ii, i1),
+                S::i64gather_epi64(&PERM64, S::sub_epi64(jj, j1)),
+            ),
+        );
 
-    let gi2 = S::i64gather_epi64(
-        &PERM64,
-        S::add_epi64(
-            S::sub_epi64(ii, S::set1_epi64(-1)),
-            S::i64gather_epi64(&PERM64, S::sub_epi64(jj, S::set1_epi64(-1))),
-        ),
-    );
+        let gi2 = S::i64gather_epi64(
+            &PERM64,
+            S::add_epi64(
+                S::sub_epi64(ii, S::set1_epi64(-1)),
+                S::i64gather_epi64(&PERM64, S::sub_epi64(jj, S::set1_epi64(-1))),
+            ),
+        );
 
-    // These FMA operations are equivalent to: let t = 0.5 - x*x - y*y
-    let t0 = S::fnmadd_pd(y0, y0, S::fnmadd_pd(x0, x0, S::set1_pd(0.5)));
-    let t1 = S::fnmadd_pd(y1, y1, S::fnmadd_pd(x1, x1, S::set1_pd(0.5)));
-    let t2 = S::fnmadd_pd(y2, y2, S::fnmadd_pd(x2, x2, S::set1_pd(0.5)));
+        // These FMA operations are equivalent to: let t = 0.5 - x*x - y*y
+        let t0 = S::fnmadd_pd(y0, y0, S::fnmadd_pd(x0, x0, S::set1_pd(0.5)));
+        let t1 = S::fnmadd_pd(y1, y1, S::fnmadd_pd(x1, x1, S::set1_pd(0.5)));
+        let t2 = S::fnmadd_pd(y2, y2, S::fnmadd_pd(x2, x2, S::set1_pd(0.5)));
 
-    let mut t0q = S::mul_pd(t0, t0);
-    t0q = S::mul_pd(t0q, t0q);
-    let mut t1q = S::mul_pd(t1, t1);
-    t1q = S::mul_pd(t1q, t1q);
-    let mut t2q = S::mul_pd(t2, t2);
-    t2q = S::mul_pd(t2q, t2q);
+        let mut t0q = S::mul_pd(t0, t0);
+        t0q = S::mul_pd(t0q, t0q);
+        let mut t1q = S::mul_pd(t1, t1);
+        t1q = S::mul_pd(t1q, t1q);
+        let mut t2q = S::mul_pd(t2, t2);
+        t2q = S::mul_pd(t2q, t2q);
 
-    let mut n0 = S::mul_pd(t0q, grad2::<S>(seed, gi0, x0, y0));
-    let mut n1 = S::mul_pd(t1q, grad2::<S>(seed, gi1, x1, y1));
-    let mut n2 = S::mul_pd(t2q, grad2::<S>(seed, gi2, x2, y2));
+        let mut n0 = S::mul_pd(t0q, grad2::<S>(seed, gi0, x0, y0));
+        let mut n1 = S::mul_pd(t1q, grad2::<S>(seed, gi1, x1, y1));
+        let mut n2 = S::mul_pd(t2q, grad2::<S>(seed, gi2, x2, y2));
 
-    let mut cond = S::cmplt_pd(t0, S::setzero_pd());
-    n0 = S::andnot_pd(cond, n0);
-    cond = S::cmplt_pd(t1, S::setzero_pd());
-    n1 = S::andnot_pd(cond, n1);
-    cond = S::cmplt_pd(t2, S::setzero_pd());
-    n2 = S::andnot_pd(cond, n2);
+        let mut cond = S::cmplt_pd(t0, S::setzero_pd());
+        n0 = S::andnot_pd(cond, n0);
+        cond = S::cmplt_pd(t1, S::setzero_pd());
+        n1 = S::andnot_pd(cond, n1);
+        cond = S::cmplt_pd(t2, S::setzero_pd());
+        n2 = S::andnot_pd(cond, n2);
 
-    S::add_pd(n0, S::add_pd(n1, n2)) * S::set1_pd(45.26450774985561631259)
+        S::add_pd(n0, S::add_pd(n1, n2)) * S::set1_pd(45.26450774985561631259)
+    })
 }
 
 #[inline(always)]
 pub unsafe fn simplex_3d<S: Simd>(x: S::Vf64, y: S::Vf64, z: S::Vf64, seed: i64) -> S::Vf64 {
-    let s = S::mul_pd(S::set1_pd(F3_64), S::add_pd(x, S::add_pd(y, z)));
+    simd_invoke!(S, {
+        let s = S::mul_pd(S::set1_pd(F3_64), S::add_pd(x, S::add_pd(y, z)));
 
-    let ipd = S::floor_pd(S::add_pd(x, s));
-    let jpd = S::floor_pd(S::add_pd(y, s));
-    let kpd = S::floor_pd(S::add_pd(z, s));
+        let ipd = S::floor_pd(S::add_pd(x, s));
+        let jpd = S::floor_pd(S::add_pd(y, s));
+        let kpd = S::floor_pd(S::add_pd(z, s));
 
-    let i = S::cvtpd_epi64(ipd);
-    let j = S::cvtpd_epi64(jpd);
-    let k = S::cvtpd_epi64(kpd);
+        let i = S::cvtpd_epi64(ipd);
+        let j = S::cvtpd_epi64(jpd);
+        let k = S::cvtpd_epi64(kpd);
 
-    let t = S::mul_pd(
-        S::cvtepi64_pd(S::add_epi64(i, S::add_epi64(j, k))),
-        S::set1_pd(G3_64),
-    );
+        let t = S::mul_pd(
+            S::cvtepi64_pd(S::add_epi64(i, S::add_epi64(j, k))),
+            S::set1_pd(G3_64),
+        );
 
-    let x0 = S::sub_pd(x, S::sub_pd(ipd, t));
-    let y0 = S::sub_pd(y, S::sub_pd(jpd, t));
-    let z0 = S::sub_pd(z, S::sub_pd(kpd, t));
+        let x0 = S::sub_pd(x, S::sub_pd(ipd, t));
+        let y0 = S::sub_pd(y, S::sub_pd(jpd, t));
+        let z0 = S::sub_pd(z, S::sub_pd(kpd, t));
 
-    let i1 = S::and_epi64(
-        S::castpd_epi64(S::cmpge_pd(x0, y0)),
-        S::castpd_epi64(S::cmpge_pd(x0, z0)),
-    );
-    let j1 = S::and_epi64(
-        S::castpd_epi64(S::cmpgt_pd(y0, x0)),
-        S::castpd_epi64(S::cmpge_pd(y0, z0)),
-    );
-    let k1 = S::and_epi64(
-        S::castpd_epi64(S::cmpgt_pd(z0, x0)),
-        S::castpd_epi64(S::cmpgt_pd(z0, y0)),
-    );
+        let i1 = S::and_epi64(
+            S::castpd_epi64(S::cmpge_pd(x0, y0)),
+            S::castpd_epi64(S::cmpge_pd(x0, z0)),
+        );
+        let j1 = S::and_epi64(
+            S::castpd_epi64(S::cmpgt_pd(y0, x0)),
+            S::castpd_epi64(S::cmpge_pd(y0, z0)),
+        );
+        let k1 = S::and_epi64(
+            S::castpd_epi64(S::cmpgt_pd(z0, x0)),
+            S::castpd_epi64(S::cmpgt_pd(z0, y0)),
+        );
 
-    //for i2
-    let yx_xz = S::and_epi64(
-        S::castpd_epi64(S::cmpge_pd(x0, y0)),
-        S::castpd_epi64(S::cmplt_pd(x0, z0)),
-    );
-    let zx_xy = S::and_epi64(
-        S::castpd_epi64(S::cmpge_pd(x0, z0)),
-        S::castpd_epi64(S::cmplt_pd(x0, y0)),
-    );
+        //for i2
+        let yx_xz = S::and_epi64(
+            S::castpd_epi64(S::cmpge_pd(x0, y0)),
+            S::castpd_epi64(S::cmplt_pd(x0, z0)),
+        );
+        let zx_xy = S::and_epi64(
+            S::castpd_epi64(S::cmpge_pd(x0, z0)),
+            S::castpd_epi64(S::cmplt_pd(x0, y0)),
+        );
 
-    //for j2
-    let xy_yz = S::and_epi64(
-        S::castpd_epi64(S::cmplt_pd(x0, y0)),
-        S::castpd_epi64(S::cmplt_pd(y0, z0)),
-    );
-    let zy_yx = S::and_epi64(
-        S::castpd_epi64(S::cmpge_pd(y0, z0)),
-        S::castpd_epi64(S::cmpge_pd(x0, y0)),
-    );
+        //for j2
+        let xy_yz = S::and_epi64(
+            S::castpd_epi64(S::cmplt_pd(x0, y0)),
+            S::castpd_epi64(S::cmplt_pd(y0, z0)),
+        );
+        let zy_yx = S::and_epi64(
+            S::castpd_epi64(S::cmpge_pd(y0, z0)),
+            S::castpd_epi64(S::cmpge_pd(x0, y0)),
+        );
 
-    //for k2
-    let yz_zx = S::and_epi64(
-        S::castpd_epi64(S::cmplt_pd(y0, z0)),
-        S::castpd_epi64(S::cmpge_pd(x0, z0)),
-    );
-    let xz_zy = S::and_epi64(
-        S::castpd_epi64(S::cmplt_pd(x0, z0)),
-        S::castpd_epi64(S::cmpge_pd(y0, z0)),
-    );
+        //for k2
+        let yz_zx = S::and_epi64(
+            S::castpd_epi64(S::cmplt_pd(y0, z0)),
+            S::castpd_epi64(S::cmpge_pd(x0, z0)),
+        );
+        let xz_zy = S::and_epi64(
+            S::castpd_epi64(S::cmplt_pd(x0, z0)),
+            S::castpd_epi64(S::cmpge_pd(y0, z0)),
+        );
 
-    let i2 = S::or_epi64(i1, S::or_epi64(yx_xz, zx_xy));
-    let j2 = S::or_epi64(j1, S::or_epi64(xy_yz, zy_yx));
-    let k2 = S::or_epi64(k1, S::or_epi64(yz_zx, xz_zy));
+        let i2 = S::or_epi64(i1, S::or_epi64(yx_xz, zx_xy));
+        let j2 = S::or_epi64(j1, S::or_epi64(xy_yz, zy_yx));
+        let k2 = S::or_epi64(k1, S::or_epi64(yz_zx, xz_zy));
 
-    let x1 = S::add_pd(S::add_pd(x0, S::cvtepi64_pd(i1)), S::set1_pd(G3_64));
-    let y1 = S::add_pd(S::add_pd(y0, S::cvtepi64_pd(j1)), S::set1_pd(G3_64));
-    let z1 = S::add_pd(S::add_pd(z0, S::cvtepi64_pd(k1)), S::set1_pd(G3_64));
-    let x2 = S::add_pd(S::add_pd(x0, S::cvtepi64_pd(i2)), S::set1_pd(F3_64));
-    let y2 = S::add_pd(S::add_pd(y0, S::cvtepi64_pd(j2)), S::set1_pd(F3_64));
-    let z2 = S::add_pd(S::add_pd(z0, S::cvtepi64_pd(k2)), S::set1_pd(F3_64));
-    let x3 = S::add_pd(x0, S::set1_pd(-0.5));
-    let y3 = S::add_pd(y0, S::set1_pd(-0.5));
-    let z3 = S::add_pd(z0, S::set1_pd(-0.5));
+        let x1 = S::add_pd(S::add_pd(x0, S::cvtepi64_pd(i1)), S::set1_pd(G3_64));
+        let y1 = S::add_pd(S::add_pd(y0, S::cvtepi64_pd(j1)), S::set1_pd(G3_64));
+        let z1 = S::add_pd(S::add_pd(z0, S::cvtepi64_pd(k1)), S::set1_pd(G3_64));
+        let x2 = S::add_pd(S::add_pd(x0, S::cvtepi64_pd(i2)), S::set1_pd(F3_64));
+        let y2 = S::add_pd(S::add_pd(y0, S::cvtepi64_pd(j2)), S::set1_pd(F3_64));
+        let z2 = S::add_pd(S::add_pd(z0, S::cvtepi64_pd(k2)), S::set1_pd(F3_64));
+        let x3 = S::add_pd(x0, S::set1_pd(-0.5));
+        let y3 = S::add_pd(y0, S::set1_pd(-0.5));
+        let z3 = S::add_pd(z0, S::set1_pd(-0.5));
 
-    // Wrap indices at 256 so it will fit in the PERM array
-    let ii = S::and_epi64(i, S::set1_epi64(0xff));
-    let jj = S::and_epi64(j, S::set1_epi64(0xff));
-    let kk = S::and_epi64(k, S::set1_epi64(0xff));
+        // Wrap indices at 256 so it will fit in the PERM array
+        let ii = S::and_epi64(i, S::set1_epi64(0xff));
+        let jj = S::and_epi64(j, S::set1_epi64(0xff));
+        let kk = S::and_epi64(k, S::set1_epi64(0xff));
 
-    let gi0 = S::i64gather_epi64(
-        &PERM64,
-        S::add_epi64(
-            ii,
-            S::i64gather_epi64(&PERM64, S::add_epi64(jj, S::i64gather_epi64(&PERM64, kk))),
-        ),
-    );
-    let gi1 = S::i64gather_epi64(
-        &PERM64,
-        S::add_epi64(
-            S::sub_epi64(ii, i1),
-            S::i64gather_epi64(
-                &PERM64,
-                S::add_epi64(
-                    S::sub_epi64(jj, j1),
-                    S::i64gather_epi64(&PERM64, S::sub_epi64(kk, k1)),
+        let gi0 = S::i64gather_epi64(
+            &PERM64,
+            S::add_epi64(
+                ii,
+                S::i64gather_epi64(&PERM64, S::add_epi64(jj, S::i64gather_epi64(&PERM64, kk))),
+            ),
+        );
+        let gi1 = S::i64gather_epi64(
+            &PERM64,
+            S::add_epi64(
+                S::sub_epi64(ii, i1),
+                S::i64gather_epi64(
+                    &PERM64,
+                    S::add_epi64(
+                        S::sub_epi64(jj, j1),
+                        S::i64gather_epi64(&PERM64, S::sub_epi64(kk, k1)),
+                    ),
                 ),
             ),
-        ),
-    );
-    let gi2 = S::i64gather_epi64(
-        &PERM64,
-        S::add_epi64(
-            S::sub_epi64(ii, i2),
-            S::i64gather_epi64(
-                &PERM64,
-                S::add_epi64(
-                    S::sub_epi64(jj, j2),
-                    S::i64gather_epi64(&PERM64, S::sub_epi64(kk, k2)),
+        );
+        let gi2 = S::i64gather_epi64(
+            &PERM64,
+            S::add_epi64(
+                S::sub_epi64(ii, i2),
+                S::i64gather_epi64(
+                    &PERM64,
+                    S::add_epi64(
+                        S::sub_epi64(jj, j2),
+                        S::i64gather_epi64(&PERM64, S::sub_epi64(kk, k2)),
+                    ),
                 ),
             ),
-        ),
-    );
-    let gi3 = S::i64gather_epi64(
-        &PERM64,
-        S::add_epi64(
-            S::sub_epi64(ii, S::set1_epi64(-1)),
-            S::i64gather_epi64(
-                &PERM64,
-                S::add_epi64(
-                    S::sub_epi64(jj, S::set1_epi64(-1)),
-                    S::i64gather_epi64(&PERM64, S::sub_epi64(kk, S::set1_epi64(-1))),
+        );
+        let gi3 = S::i64gather_epi64(
+            &PERM64,
+            S::add_epi64(
+                S::sub_epi64(ii, S::set1_epi64(-1)),
+                S::i64gather_epi64(
+                    &PERM64,
+                    S::add_epi64(
+                        S::sub_epi64(jj, S::set1_epi64(-1)),
+                        S::i64gather_epi64(&PERM64, S::sub_epi64(kk, S::set1_epi64(-1))),
+                    ),
                 ),
             ),
-        ),
-    );
+        );
 
-    // These FMA operations are equivalent to: let t = 0.5 - x*x - y*y - z*z
-    let t0 = S::fnmadd_pd(
-        z0,
-        z0,
-        S::fnmadd_pd(y0, y0, S::fnmadd_pd(x0, x0, S::set1_pd(0.5))),
-    );
-    let t1 = S::fnmadd_pd(
-        z1,
-        z1,
-        S::fnmadd_pd(y1, y1, S::fnmadd_pd(x1, x1, S::set1_pd(0.5))),
-    );
-    let t2 = S::fnmadd_pd(
-        z2,
-        z2,
-        S::fnmadd_pd(y2, y2, S::fnmadd_pd(x2, x2, S::set1_pd(0.5))),
-    );
-    let t3 = S::fnmadd_pd(
-        z3,
-        z3,
-        S::fnmadd_pd(y3, y3, S::fnmadd_pd(x3, x3, S::set1_pd(0.5))),
-    );
+        // These FMA operations are equivalent to: let t = 0.5 - x*x - y*y - z*z
+        let t0 = S::fnmadd_pd(
+            z0,
+            z0,
+            S::fnmadd_pd(y0, y0, S::fnmadd_pd(x0, x0, S::set1_pd(0.5))),
+        );
+        let t1 = S::fnmadd_pd(
+            z1,
+            z1,
+            S::fnmadd_pd(y1, y1, S::fnmadd_pd(x1, x1, S::set1_pd(0.5))),
+        );
+        let t2 = S::fnmadd_pd(
+            z2,
+            z2,
+            S::fnmadd_pd(y2, y2, S::fnmadd_pd(x2, x2, S::set1_pd(0.5))),
+        );
+        let t3 = S::fnmadd_pd(
+            z3,
+            z3,
+            S::fnmadd_pd(y3, y3, S::fnmadd_pd(x3, x3, S::set1_pd(0.5))),
+        );
 
-    //ti*ti*ti*ti
-    let mut t0q = S::mul_pd(t0, t0);
-    t0q = S::mul_pd(t0q, t0q);
-    let mut t1q = S::mul_pd(t1, t1);
-    t1q = S::mul_pd(t1q, t1q);
-    let mut t2q = S::mul_pd(t2, t2);
-    t2q = S::mul_pd(t2q, t2q);
-    let mut t3q = S::mul_pd(t3, t3);
-    t3q = S::mul_pd(t3q, t3q);
+        //ti*ti*ti*ti
+        let mut t0q = S::mul_pd(t0, t0);
+        t0q = S::mul_pd(t0q, t0q);
+        let mut t1q = S::mul_pd(t1, t1);
+        t1q = S::mul_pd(t1q, t1q);
+        let mut t2q = S::mul_pd(t2, t2);
+        t2q = S::mul_pd(t2q, t2q);
+        let mut t3q = S::mul_pd(t3, t3);
+        t3q = S::mul_pd(t3q, t3q);
 
-    let mut n0 = S::mul_pd(t0q, grad3d::<S>(seed, gi0, x0, y0, z0));
-    let mut n1 = S::mul_pd(t1q, grad3d::<S>(seed, gi1, x1, y1, z1));
-    let mut n2 = S::mul_pd(t2q, grad3d::<S>(seed, gi2, x2, y2, z2));
-    let mut n3 = S::mul_pd(t3q, grad3d::<S>(seed, gi3, x3, y3, z3));
+        let mut n0 = S::mul_pd(t0q, grad3d::<S>(seed, gi0, x0, y0, z0));
+        let mut n1 = S::mul_pd(t1q, grad3d::<S>(seed, gi1, x1, y1, z1));
+        let mut n2 = S::mul_pd(t2q, grad3d::<S>(seed, gi2, x2, y2, z2));
+        let mut n3 = S::mul_pd(t3q, grad3d::<S>(seed, gi3, x3, y3, z3));
 
-    //if ti < 0 then 0 else ni
-    let mut cond = S::cmplt_pd(t0, S::setzero_pd());
-    n0 = S::andnot_pd(cond, n0);
-    cond = S::cmplt_pd(t1, S::setzero_pd());
-    n1 = S::andnot_pd(cond, n1);
-    cond = S::cmplt_pd(t2, S::setzero_pd());
-    n2 = S::andnot_pd(cond, n2);
-    cond = S::cmplt_pd(t3, S::setzero_pd());
-    n3 = S::andnot_pd(cond, n3);
+        //if ti < 0 then 0 else ni
+        let mut cond = S::cmplt_pd(t0, S::setzero_pd());
+        n0 = S::andnot_pd(cond, n0);
+        cond = S::cmplt_pd(t1, S::setzero_pd());
+        n1 = S::andnot_pd(cond, n1);
+        cond = S::cmplt_pd(t2, S::setzero_pd());
+        n2 = S::andnot_pd(cond, n2);
+        cond = S::cmplt_pd(t3, S::setzero_pd());
+        n3 = S::andnot_pd(cond, n3);
 
-    S::add_pd(n0, S::add_pd(n1, S::add_pd(n2, n3)))
+        S::add_pd(n0, S::add_pd(n1, S::add_pd(n2, n3)))
+    })
 }
 
 /// Samples 4-dimensional simplex noise
@@ -327,218 +333,221 @@ pub unsafe fn simplex_4d<S: Simd>(
     w: S::Vf64,
     seed: i64,
 ) -> S::Vf64 {
-    let s = S::mul_pd(
-        S::set1_pd(F4_64),
-        S::add_pd(x, S::add_pd(y, S::add_pd(z, w))),
-    );
+    simd_invoke!(S, {
+        let s = S::mul_pd(
+            S::set1_pd(F4_64),
+            S::add_pd(x, S::add_pd(y, S::add_pd(z, w))),
+        );
 
-    let ipd = S::floor_pd(S::add_pd(x, s));
-    let jpd = S::floor_pd(S::add_pd(y, s));
-    let kpd = S::floor_pd(S::add_pd(z, s));
-    let lpd = S::floor_pd(S::add_pd(w, s));
+        let ipd = S::floor_pd(S::add_pd(x, s));
+        let jpd = S::floor_pd(S::add_pd(y, s));
+        let kpd = S::floor_pd(S::add_pd(z, s));
+        let lpd = S::floor_pd(S::add_pd(w, s));
 
-    let i = S::cvtpd_epi64(ipd);
-    let j = S::cvtpd_epi64(jpd);
-    let k = S::cvtpd_epi64(kpd);
-    let l = S::cvtpd_epi64(lpd);
+        let i = S::cvtpd_epi64(ipd);
+        let j = S::cvtpd_epi64(jpd);
+        let k = S::cvtpd_epi64(kpd);
+        let l = S::cvtpd_epi64(lpd);
 
-    let t = S::mul_pd(
-        S::cvtepi64_pd(S::add_epi64(i, S::add_epi64(j, S::add_epi64(k, l)))),
-        S::set1_pd(G4_64),
-    );
-    let x0 = S::sub_pd(x, S::sub_pd(ipd, t));
-    let y0 = S::sub_pd(y, S::sub_pd(jpd, t));
-    let z0 = S::sub_pd(z, S::sub_pd(kpd, t));
-    let w0 = S::sub_pd(w, S::sub_pd(lpd, t));
+        let t = S::mul_pd(
+            S::cvtepi64_pd(S::add_epi64(i, S::add_epi64(j, S::add_epi64(k, l)))),
+            S::set1_pd(G4_64),
+        );
+        let x0 = S::sub_pd(x, S::sub_pd(ipd, t));
+        let y0 = S::sub_pd(y, S::sub_pd(jpd, t));
+        let z0 = S::sub_pd(z, S::sub_pd(kpd, t));
+        let w0 = S::sub_pd(w, S::sub_pd(lpd, t));
 
-    let mut rank_x = S::setzero_epi64();
-    let mut rank_y = S::setzero_epi64();
-    let mut rank_z = S::setzero_epi64();
-    let mut rank_w = S::setzero_epi64();
+        let mut rank_x = S::setzero_epi64();
+        let mut rank_y = S::setzero_epi64();
+        let mut rank_z = S::setzero_epi64();
+        let mut rank_w = S::setzero_epi64();
 
-    let cond = S::castpd_epi64(S::cmpgt_pd(x0, y0));
-    rank_x = S::add_epi64(rank_x, S::and_epi64(cond, S::set1_epi64(1)));
-    rank_y = S::add_epi64(rank_y, S::andnot_epi64(cond, S::set1_epi64(1)));
-    let cond = S::castpd_epi64(S::cmpgt_pd(x0, z0));
-    rank_x = S::add_epi64(rank_x, S::and_epi64(cond, S::set1_epi64(1)));
-    rank_z = S::add_epi64(rank_z, S::andnot_epi64(cond, S::set1_epi64(1)));
-    let cond = S::castpd_epi64(S::cmpgt_pd(x0, w0));
-    rank_x = S::add_epi64(rank_x, S::and_epi64(cond, S::set1_epi64(1)));
-    rank_w = S::add_epi64(rank_w, S::andnot_epi64(cond, S::set1_epi64(1)));
-    let cond = S::castpd_epi64(S::cmpgt_pd(y0, z0));
-    rank_y = S::add_epi64(rank_y, S::and_epi64(cond, S::set1_epi64(1)));
-    rank_z = S::add_epi64(rank_z, S::andnot_epi64(cond, S::set1_epi64(1)));
-    let cond = S::castpd_epi64(S::cmpgt_pd(y0, w0));
-    rank_y = S::add_epi64(rank_y, S::and_epi64(cond, S::set1_epi64(1)));
-    rank_w = S::add_epi64(rank_w, S::andnot_epi64(cond, S::set1_epi64(1)));
-    let cond = S::castpd_epi64(S::cmpgt_pd(z0, w0));
-    rank_z = S::add_epi64(rank_z, S::and_epi64(cond, S::set1_epi64(1)));
-    rank_w = S::add_epi64(rank_w, S::andnot_epi64(cond, S::set1_epi64(1)));
+        let cond = S::castpd_epi64(S::cmpgt_pd(x0, y0));
+        rank_x = S::add_epi64(rank_x, S::and_epi64(cond, S::set1_epi64(1)));
+        rank_y = S::add_epi64(rank_y, S::andnot_epi64(cond, S::set1_epi64(1)));
+        let cond = S::castpd_epi64(S::cmpgt_pd(x0, z0));
+        rank_x = S::add_epi64(rank_x, S::and_epi64(cond, S::set1_epi64(1)));
+        rank_z = S::add_epi64(rank_z, S::andnot_epi64(cond, S::set1_epi64(1)));
+        let cond = S::castpd_epi64(S::cmpgt_pd(x0, w0));
+        rank_x = S::add_epi64(rank_x, S::and_epi64(cond, S::set1_epi64(1)));
+        rank_w = S::add_epi64(rank_w, S::andnot_epi64(cond, S::set1_epi64(1)));
+        let cond = S::castpd_epi64(S::cmpgt_pd(y0, z0));
+        rank_y = S::add_epi64(rank_y, S::and_epi64(cond, S::set1_epi64(1)));
+        rank_z = S::add_epi64(rank_z, S::andnot_epi64(cond, S::set1_epi64(1)));
+        let cond = S::castpd_epi64(S::cmpgt_pd(y0, w0));
+        rank_y = S::add_epi64(rank_y, S::and_epi64(cond, S::set1_epi64(1)));
+        rank_w = S::add_epi64(rank_w, S::andnot_epi64(cond, S::set1_epi64(1)));
+        let cond = S::castpd_epi64(S::cmpgt_pd(z0, w0));
+        rank_z = S::add_epi64(rank_z, S::and_epi64(cond, S::set1_epi64(1)));
+        rank_w = S::add_epi64(rank_w, S::andnot_epi64(cond, S::set1_epi64(1)));
 
-    let cond = S::cmpgt_epi64(rank_x, S::set1_epi64(2));
-    let i1 = S::and_epi64(S::set1_epi64(1), cond);
-    let cond = S::cmpgt_epi64(rank_y, S::set1_epi64(2));
-    let j1 = S::and_epi64(S::set1_epi64(1), cond);
-    let cond = S::cmpgt_epi64(rank_z, S::set1_epi64(2));
-    let k1 = S::and_epi64(S::set1_epi64(1), cond);
-    let cond = S::cmpgt_epi64(rank_w, S::set1_epi64(2));
-    let l1 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_x, S::set1_epi64(2));
+        let i1 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_y, S::set1_epi64(2));
+        let j1 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_z, S::set1_epi64(2));
+        let k1 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_w, S::set1_epi64(2));
+        let l1 = S::and_epi64(S::set1_epi64(1), cond);
 
-    let cond = S::cmpgt_epi64(rank_x, S::set1_epi64(1));
-    let i2 = S::and_epi64(S::set1_epi64(1), cond);
-    let cond = S::cmpgt_epi64(rank_y, S::set1_epi64(1));
-    let j2 = S::and_epi64(S::set1_epi64(1), cond);
-    let cond = S::cmpgt_epi64(rank_z, S::set1_epi64(1));
-    let k2 = S::and_epi64(S::set1_epi64(1), cond);
-    let cond = S::cmpgt_epi64(rank_w, S::set1_epi64(1));
-    let l2 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_x, S::set1_epi64(1));
+        let i2 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_y, S::set1_epi64(1));
+        let j2 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_z, S::set1_epi64(1));
+        let k2 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_w, S::set1_epi64(1));
+        let l2 = S::and_epi64(S::set1_epi64(1), cond);
 
-    let cond = S::cmpgt_epi64(rank_x, S::setzero_epi64());
-    let i3 = S::and_epi64(S::set1_epi64(1), cond);
-    let cond = S::cmpgt_epi64(rank_y, S::setzero_epi64());
-    let j3 = S::and_epi64(S::set1_epi64(1), cond);
-    let cond = S::cmpgt_epi64(rank_z, S::setzero_epi64());
-    let k3 = S::and_epi64(S::set1_epi64(1), cond);
-    let cond = S::cmpgt_epi64(rank_w, S::setzero_epi64());
-    let l3 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_x, S::setzero_epi64());
+        let i3 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_y, S::setzero_epi64());
+        let j3 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_z, S::setzero_epi64());
+        let k3 = S::and_epi64(S::set1_epi64(1), cond);
+        let cond = S::cmpgt_epi64(rank_w, S::setzero_epi64());
+        let l3 = S::and_epi64(S::set1_epi64(1), cond);
 
-    let x1 = S::add_pd(S::sub_pd(x0, S::cvtepi64_pd(i1)), S::set1_pd(G4_64));
-    let y1 = S::add_pd(S::sub_pd(y0, S::cvtepi64_pd(j1)), S::set1_pd(G4_64));
-    let z1 = S::add_pd(S::sub_pd(z0, S::cvtepi64_pd(k1)), S::set1_pd(G4_64));
-    let w1 = S::add_pd(S::sub_pd(w0, S::cvtepi64_pd(l1)), S::set1_pd(G4_64));
-    let x2 = S::add_pd(S::sub_pd(x0, S::cvtepi64_pd(i2)), S::set1_pd(G24_64));
-    let y2 = S::add_pd(S::sub_pd(y0, S::cvtepi64_pd(j2)), S::set1_pd(G24_64));
-    let z2 = S::add_pd(S::sub_pd(z0, S::cvtepi64_pd(k2)), S::set1_pd(G24_64));
-    let w2 = S::add_pd(S::sub_pd(w0, S::cvtepi64_pd(l2)), S::set1_pd(G24_64));
-    let x3 = S::add_pd(S::sub_pd(x0, S::cvtepi64_pd(i3)), S::set1_pd(G34_64));
-    let y3 = S::add_pd(S::sub_pd(y0, S::cvtepi64_pd(j3)), S::set1_pd(G34_64));
-    let z3 = S::add_pd(S::sub_pd(z0, S::cvtepi64_pd(k3)), S::set1_pd(G34_64));
-    let w3 = S::add_pd(S::sub_pd(w0, S::cvtepi64_pd(l3)), S::set1_pd(G34_64));
-    let x4 = S::add_pd(S::sub_pd(x0, S::set1_pd(1.0)), S::set1_pd(G44_64));
-    let y4 = S::add_pd(S::sub_pd(y0, S::set1_pd(1.0)), S::set1_pd(G44_64));
-    let z4 = S::add_pd(S::sub_pd(z0, S::set1_pd(1.0)), S::set1_pd(G44_64));
-    let w4 = S::add_pd(S::sub_pd(w0, S::set1_pd(1.0)), S::set1_pd(G44_64));
+        let x1 = S::add_pd(S::sub_pd(x0, S::cvtepi64_pd(i1)), S::set1_pd(G4_64));
+        let y1 = S::add_pd(S::sub_pd(y0, S::cvtepi64_pd(j1)), S::set1_pd(G4_64));
+        let z1 = S::add_pd(S::sub_pd(z0, S::cvtepi64_pd(k1)), S::set1_pd(G4_64));
+        let w1 = S::add_pd(S::sub_pd(w0, S::cvtepi64_pd(l1)), S::set1_pd(G4_64));
+        let x2 = S::add_pd(S::sub_pd(x0, S::cvtepi64_pd(i2)), S::set1_pd(G24_64));
+        let y2 = S::add_pd(S::sub_pd(y0, S::cvtepi64_pd(j2)), S::set1_pd(G24_64));
+        let z2 = S::add_pd(S::sub_pd(z0, S::cvtepi64_pd(k2)), S::set1_pd(G24_64));
+        let w2 = S::add_pd(S::sub_pd(w0, S::cvtepi64_pd(l2)), S::set1_pd(G24_64));
+        let x3 = S::add_pd(S::sub_pd(x0, S::cvtepi64_pd(i3)), S::set1_pd(G34_64));
+        let y3 = S::add_pd(S::sub_pd(y0, S::cvtepi64_pd(j3)), S::set1_pd(G34_64));
+        let z3 = S::add_pd(S::sub_pd(z0, S::cvtepi64_pd(k3)), S::set1_pd(G34_64));
+        let w3 = S::add_pd(S::sub_pd(w0, S::cvtepi64_pd(l3)), S::set1_pd(G34_64));
+        let x4 = S::add_pd(S::sub_pd(x0, S::set1_pd(1.0)), S::set1_pd(G44_64));
+        let y4 = S::add_pd(S::sub_pd(y0, S::set1_pd(1.0)), S::set1_pd(G44_64));
+        let z4 = S::add_pd(S::sub_pd(z0, S::set1_pd(1.0)), S::set1_pd(G44_64));
+        let w4 = S::add_pd(S::sub_pd(w0, S::set1_pd(1.0)), S::set1_pd(G44_64));
 
-    let ii = S::and_epi64(i, S::set1_epi64(0xff));
-    let jj = S::and_epi64(j, S::set1_epi64(0xff));
-    let kk = S::and_epi64(k, S::set1_epi64(0xff));
-    let ll = S::and_epi64(l, S::set1_epi64(0xff));
+        let ii = S::and_epi64(i, S::set1_epi64(0xff));
+        let jj = S::and_epi64(j, S::set1_epi64(0xff));
+        let kk = S::and_epi64(k, S::set1_epi64(0xff));
+        let ll = S::and_epi64(l, S::set1_epi64(0xff));
 
-    let lp = S::i64gather_epi64(&PERM64, ll);
-    let kp = S::i64gather_epi64(&PERM64, S::add_epi64(kk, lp));
-    let jp = S::i64gather_epi64(&PERM64, S::add_epi64(jj, kp));
-    let gi0 = S::i64gather_epi64(&PERM64, S::add_epi64(ii, jp));
+        let lp = S::i64gather_epi64(&PERM64, ll);
+        let kp = S::i64gather_epi64(&PERM64, S::add_epi64(kk, lp));
+        let jp = S::i64gather_epi64(&PERM64, S::add_epi64(jj, kp));
+        let gi0 = S::i64gather_epi64(&PERM64, S::add_epi64(ii, jp));
 
-    let lp = S::i64gather_epi64(&PERM64, S::add_epi64(ll, l1));
-    let kp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(kk, k1), lp));
-    let jp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(jj, j1), kp));
-    let gi1 = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(ii, i1), jp));
+        let lp = S::i64gather_epi64(&PERM64, S::add_epi64(ll, l1));
+        let kp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(kk, k1), lp));
+        let jp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(jj, j1), kp));
+        let gi1 = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(ii, i1), jp));
 
-    let lp = S::i64gather_epi64(&PERM64, S::add_epi64(ll, l2));
-    let kp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(kk, k2), lp));
-    let jp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(jj, j2), kp));
-    let gi2 = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(ii, i2), jp));
+        let lp = S::i64gather_epi64(&PERM64, S::add_epi64(ll, l2));
+        let kp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(kk, k2), lp));
+        let jp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(jj, j2), kp));
+        let gi2 = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(ii, i2), jp));
 
-    let lp = S::i64gather_epi64(&PERM64, S::add_epi64(ll, l3));
-    let kp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(kk, k3), lp));
-    let jp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(jj, j3), kp));
-    let gi3 = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(ii, i3), jp));
+        let lp = S::i64gather_epi64(&PERM64, S::add_epi64(ll, l3));
+        let kp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(kk, k3), lp));
+        let jp = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(jj, j3), kp));
+        let gi3 = S::i64gather_epi64(&PERM64, S::add_epi64(S::add_epi64(ii, i3), jp));
 
-    let lp = S::i64gather_epi64(&PERM64, S::add_epi64(ll, S::set1_epi64(1)));
-    let kp = S::i64gather_epi64(
-        &PERM64,
-        S::add_epi64(S::add_epi64(kk, S::set1_epi64(1)), lp),
-    );
-    let jp = S::i64gather_epi64(
-        &PERM64,
-        S::add_epi64(S::add_epi64(jj, S::set1_epi64(1)), kp),
-    );
-    let gi4 = S::i64gather_epi64(
-        &PERM64,
-        S::add_epi64(S::add_epi64(ii, S::set1_epi64(1)), jp),
-    );
+        let lp = S::i64gather_epi64(&PERM64, S::add_epi64(ll, S::set1_epi64(1)));
+        let kp = S::i64gather_epi64(
+            &PERM64,
+            S::add_epi64(S::add_epi64(kk, S::set1_epi64(1)), lp),
+        );
+        let jp = S::i64gather_epi64(
+            &PERM64,
+            S::add_epi64(S::add_epi64(jj, S::set1_epi64(1)), kp),
+        );
+        let gi4 = S::i64gather_epi64(
+            &PERM64,
+            S::add_epi64(S::add_epi64(ii, S::set1_epi64(1)), jp),
+        );
 
-    let t0 = S::sub_pd(
-        S::sub_pd(
+        let t0 = S::sub_pd(
             S::sub_pd(
-                S::sub_pd(S::set1_pd(0.5), S::mul_pd(x0, x0)),
-                S::mul_pd(y0, y0),
+                S::sub_pd(
+                    S::sub_pd(S::set1_pd(0.5), S::mul_pd(x0, x0)),
+                    S::mul_pd(y0, y0),
+                ),
+                S::mul_pd(z0, z0),
             ),
-            S::mul_pd(z0, z0),
-        ),
-        S::mul_pd(w0, w0),
-    );
-    let t1 = S::sub_pd(
-        S::sub_pd(
+            S::mul_pd(w0, w0),
+        );
+        let t1 = S::sub_pd(
             S::sub_pd(
-                S::sub_pd(S::set1_pd(0.5), S::mul_pd(x1, x1)),
-                S::mul_pd(y1, y1),
+                S::sub_pd(
+                    S::sub_pd(S::set1_pd(0.5), S::mul_pd(x1, x1)),
+                    S::mul_pd(y1, y1),
+                ),
+                S::mul_pd(z1, z1),
             ),
-            S::mul_pd(z1, z1),
-        ),
-        S::mul_pd(w1, w1),
-    );
-    let t2 = S::sub_pd(
-        S::sub_pd(
+            S::mul_pd(w1, w1),
+        );
+        let t2 = S::sub_pd(
             S::sub_pd(
-                S::sub_pd(S::set1_pd(0.5), S::mul_pd(x2, x2)),
-                S::mul_pd(y2, y2),
+                S::sub_pd(
+                    S::sub_pd(S::set1_pd(0.5), S::mul_pd(x2, x2)),
+                    S::mul_pd(y2, y2),
+                ),
+                S::mul_pd(z2, z2),
             ),
-            S::mul_pd(z2, z2),
-        ),
-        S::mul_pd(w2, w2),
-    );
-    let t3 = S::sub_pd(
-        S::sub_pd(
+            S::mul_pd(w2, w2),
+        );
+        let t3 = S::sub_pd(
             S::sub_pd(
-                S::sub_pd(S::set1_pd(0.5), S::mul_pd(x3, x3)),
-                S::mul_pd(y3, y3),
+                S::sub_pd(
+                    S::sub_pd(S::set1_pd(0.5), S::mul_pd(x3, x3)),
+                    S::mul_pd(y3, y3),
+                ),
+                S::mul_pd(z3, z3),
             ),
-            S::mul_pd(z3, z3),
-        ),
-        S::mul_pd(w3, w3),
-    );
-    let t4 = S::sub_pd(
-        S::sub_pd(
+            S::mul_pd(w3, w3),
+        );
+        let t4 = S::sub_pd(
             S::sub_pd(
-                S::sub_pd(S::set1_pd(0.5), S::mul_pd(x4, x4)),
-                S::mul_pd(y4, y4),
+                S::sub_pd(
+                    S::sub_pd(S::set1_pd(0.5), S::mul_pd(x4, x4)),
+                    S::mul_pd(y4, y4),
+                ),
+                S::mul_pd(z4, z4),
             ),
-            S::mul_pd(z4, z4),
-        ),
-        S::mul_pd(w4, w4),
-    );
-    //ti*ti*ti*ti
-    let mut t0q = S::mul_pd(t0, t0);
-    t0q = S::mul_pd(t0q, t0q);
-    let mut t1q = S::mul_pd(t1, t1);
-    t1q = S::mul_pd(t1q, t1q);
-    let mut t2q = S::mul_pd(t2, t2);
-    t2q = S::mul_pd(t2q, t2q);
-    let mut t3q = S::mul_pd(t3, t3);
-    t3q = S::mul_pd(t3q, t3q);
-    let mut t4q = S::mul_pd(t4, t4);
-    t4q = S::mul_pd(t4q, t4q);
+            S::mul_pd(w4, w4),
+        );
+        //ti*ti*ti*ti
+        let mut t0q = S::mul_pd(t0, t0);
+        t0q = S::mul_pd(t0q, t0q);
+        let mut t1q = S::mul_pd(t1, t1);
+        t1q = S::mul_pd(t1q, t1q);
+        let mut t2q = S::mul_pd(t2, t2);
+        t2q = S::mul_pd(t2q, t2q);
+        let mut t3q = S::mul_pd(t3, t3);
+        t3q = S::mul_pd(t3q, t3q);
+        let mut t4q = S::mul_pd(t4, t4);
+        t4q = S::mul_pd(t4q, t4q);
 
-    let mut n0 = S::mul_pd(t0q, grad4::<S>(seed, gi0, x0, y0, z0, w0));
-    let mut n1 = S::mul_pd(t1q, grad4::<S>(seed, gi1, x1, y1, z1, w1));
-    let mut n2 = S::mul_pd(t2q, grad4::<S>(seed, gi2, x2, y2, z2, w2));
-    let mut n3 = S::mul_pd(t3q, grad4::<S>(seed, gi3, x3, y3, z3, w3));
-    let mut n4 = S::mul_pd(t4q, grad4::<S>(seed, gi4, x4, y4, z4, w4));
+        let mut n0 = S::mul_pd(t0q, grad4::<S>(seed, gi0, x0, y0, z0, w0));
+        let mut n1 = S::mul_pd(t1q, grad4::<S>(seed, gi1, x1, y1, z1, w1));
+        let mut n2 = S::mul_pd(t2q, grad4::<S>(seed, gi2, x2, y2, z2, w2));
+        let mut n3 = S::mul_pd(t3q, grad4::<S>(seed, gi3, x3, y3, z3, w3));
+        let mut n4 = S::mul_pd(t4q, grad4::<S>(seed, gi4, x4, y4, z4, w4));
 
-    //if ti < 0 then 0 else ni
-    let mut cond = S::cmplt_pd(t0, S::setzero_pd());
-    n0 = S::andnot_pd(cond, n0);
-    cond = S::cmplt_pd(t1, S::setzero_pd());
-    n1 = S::andnot_pd(cond, n1);
-    cond = S::cmplt_pd(t2, S::setzero_pd());
-    n2 = S::andnot_pd(cond, n2);
-    cond = S::cmplt_pd(t3, S::setzero_pd());
-    n3 = S::andnot_pd(cond, n3);
-    cond = S::cmplt_pd(t4, S::setzero_pd());
-    n4 = S::andnot_pd(cond, n4);
+        //if ti < 0 then 0 else ni
+        let mut cond = S::cmplt_pd(t0, S::setzero_pd());
+        n0 = S::andnot_pd(cond, n0);
+        cond = S::cmplt_pd(t1, S::setzero_pd());
+        n1 = S::andnot_pd(cond, n1);
+        cond = S::cmplt_pd(t2, S::setzero_pd());
+        n2 = S::andnot_pd(cond, n2);
+        cond = S::cmplt_pd(t3, S::setzero_pd());
+        n3 = S::andnot_pd(cond, n3);
+        cond = S::cmplt_pd(t4, S::setzero_pd());
+        n4 = S::andnot_pd(cond, n4);
 
-    S::add_pd(n0, S::add_pd(n1, S::add_pd(n2, S::add_pd(n3, n4)))) * S::set1_pd(62.77772078955791)
+        S::add_pd(n0, S::add_pd(n1, S::add_pd(n2, S::add_pd(n3, n4))))
+            * S::set1_pd(62.77772078955791)
+    })
 }
 
 #[cfg(test)]

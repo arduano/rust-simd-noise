@@ -7,7 +7,7 @@ use crate::noise::ridge_32::{ridge_1d, ridge_2d, ridge_3d, ridge_4d};
 use crate::noise::simplex_32::{simplex_1d, simplex_2d, simplex_3d, simplex_4d};
 use crate::noise::turbulence_32::{turbulence_1d, turbulence_2d, turbulence_3d, turbulence_4d};
 
-use simdeez::Simd;
+use simdeez::{simd_invoke, Simd};
 
 use std::f32;
 
@@ -290,39 +290,41 @@ macro_rules! get_4d_noise_helper_f32 {
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn get_1d_noise<S: Simd>(noise_type: &NoiseType) -> (Vec<f32>, f32, f32) {
-    match noise_type {
-        NoiseType::Fbm(s) => get_1d_noise_helper_f32!(
-            s,
-            fbm_1d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Ridge(s) => get_1d_noise_helper_f32!(
-            s,
-            ridge_1d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Turbulence(s) => get_1d_noise_helper_f32!(
-            s,
-            turbulence_1d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Gradient(s) => get_1d_noise_helper_f32!(s, simplex_1d::<S>, s.dim.seed),
-        NoiseType::Cellular(_) => {
-            panic!("not implemented");
+    simd_invoke!(S, {
+        match noise_type {
+            NoiseType::Fbm(s) => get_1d_noise_helper_f32!(
+                s,
+                fbm_1d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Ridge(s) => get_1d_noise_helper_f32!(
+                s,
+                ridge_1d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Turbulence(s) => get_1d_noise_helper_f32!(
+                s,
+                turbulence_1d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Gradient(s) => get_1d_noise_helper_f32!(s, simplex_1d::<S>, s.dim.seed),
+            NoiseType::Cellular(_) => {
+                panic!("not implemented");
+            }
+            NoiseType::Cellular2(_) => {
+                panic!("not implemented");
+            }
         }
-        NoiseType::Cellular2(_) => {
-            panic!("not implemented");
-        }
-    }
+    })
 }
 
 /// Gets a width X height sized block of 2d noise, unscaled.
@@ -333,51 +335,53 @@ pub unsafe fn get_1d_noise<S: Simd>(noise_type: &NoiseType) -> (Vec<f32>, f32, f
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn get_2d_noise<S: Simd>(noise_type: &NoiseType) -> (Vec<f32>, f32, f32) {
-    match noise_type {
-        NoiseType::Fbm(s) => get_2d_noise_helper_f32!(
-            s,
-            fbm_2d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Ridge(s) => get_2d_noise_helper_f32!(
-            s,
-            ridge_2d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Turbulence(s) => get_2d_noise_helper_f32!(
-            s,
-            turbulence_2d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Gradient(s) => get_2d_noise_helper_f32!(s, simplex_2d::<S>, s.dim.seed),
-        NoiseType::Cellular(s) => get_2d_noise_helper_f32!(
-            s,
-            cellular_2d::<S>,
-            s.distance_function,
-            s.return_type,
-            S::set1_ps(s.jitter),
-            s.dim.seed
-        ),
-        NoiseType::Cellular2(s) => get_2d_noise_helper_f32!(
-            s,
-            cellular2_2d::<S>,
-            s.distance_function,
-            s.return_type,
-            S::set1_ps(s.jitter),
-            s.index0,
-            s.index1,
-            s.dim.seed
-        ),
-    }
+    simd_invoke!(S, {
+        match noise_type {
+            NoiseType::Fbm(s) => get_2d_noise_helper_f32!(
+                s,
+                fbm_2d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Ridge(s) => get_2d_noise_helper_f32!(
+                s,
+                ridge_2d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Turbulence(s) => get_2d_noise_helper_f32!(
+                s,
+                turbulence_2d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Gradient(s) => get_2d_noise_helper_f32!(s, simplex_2d::<S>, s.dim.seed),
+            NoiseType::Cellular(s) => get_2d_noise_helper_f32!(
+                s,
+                cellular_2d::<S>,
+                s.distance_function,
+                s.return_type,
+                S::set1_ps(s.jitter),
+                s.dim.seed
+            ),
+            NoiseType::Cellular2(s) => get_2d_noise_helper_f32!(
+                s,
+                cellular2_2d::<S>,
+                s.distance_function,
+                s.return_type,
+                S::set1_ps(s.jitter),
+                s.index0,
+                s.index1,
+                s.dim.seed
+            ),
+        }
+    })
 }
 
 /// Gets a width X height X depth sized block of 3d noise, unscaled,
@@ -388,87 +392,91 @@ pub unsafe fn get_2d_noise<S: Simd>(noise_type: &NoiseType) -> (Vec<f32>, f32, f
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn get_3d_noise<S: Simd>(noise_type: &NoiseType) -> (Vec<f32>, f32, f32) {
-    match noise_type {
-        NoiseType::Fbm(s) => get_3d_noise_helper_f32!(
-            s,
-            fbm_3d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Ridge(s) => get_3d_noise_helper_f32!(
-            s,
-            ridge_3d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Turbulence(s) => get_3d_noise_helper_f32!(
-            s,
-            turbulence_3d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Gradient(s) => get_3d_noise_helper_f32!(s, simplex_3d::<S>, s.dim.seed),
-        NoiseType::Cellular(s) => get_3d_noise_helper_f32!(
-            s,
-            cellular_3d::<S>,
-            s.distance_function,
-            s.return_type,
-            S::set1_ps(s.jitter),
-            s.dim.seed
-        ),
-        NoiseType::Cellular2(s) => get_3d_noise_helper_f32!(
-            s,
-            cellular2_3d::<S>,
-            s.distance_function,
-            s.return_type,
-            S::set1_ps(s.jitter),
-            s.index0,
-            s.index1,
-            s.dim.seed
-        ),
-    }
+    simd_invoke!(S, {
+        match noise_type {
+            NoiseType::Fbm(s) => get_3d_noise_helper_f32!(
+                s,
+                fbm_3d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Ridge(s) => get_3d_noise_helper_f32!(
+                s,
+                ridge_3d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Turbulence(s) => get_3d_noise_helper_f32!(
+                s,
+                turbulence_3d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Gradient(s) => get_3d_noise_helper_f32!(s, simplex_3d::<S>, s.dim.seed),
+            NoiseType::Cellular(s) => get_3d_noise_helper_f32!(
+                s,
+                cellular_3d::<S>,
+                s.distance_function,
+                s.return_type,
+                S::set1_ps(s.jitter),
+                s.dim.seed
+            ),
+            NoiseType::Cellular2(s) => get_3d_noise_helper_f32!(
+                s,
+                cellular2_3d::<S>,
+                s.distance_function,
+                s.return_type,
+                S::set1_ps(s.jitter),
+                s.index0,
+                s.index1,
+                s.dim.seed
+            ),
+        }
+    })
 }
 
 #[inline(always)]
 #[allow(dead_code)]
 pub unsafe fn get_4d_noise<S: Simd>(noise_type: &NoiseType) -> (Vec<f32>, f32, f32) {
-    match noise_type {
-        NoiseType::Fbm(s) => get_4d_noise_helper_f32!(
-            s,
-            fbm_4d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Ridge(s) => get_4d_noise_helper_f32!(
-            s,
-            ridge_4d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Turbulence(s) => get_4d_noise_helper_f32!(
-            s,
-            turbulence_4d::<S>,
-            S::set1_ps(s.lacunarity),
-            S::set1_ps(s.gain),
-            s.octaves,
-            s.dim.seed
-        ),
-        NoiseType::Gradient(s) => get_4d_noise_helper_f32!(s, simplex_4d::<S>, s.dim.seed),
-        NoiseType::Cellular(_) => {
-            panic!("not implemented");
+    simd_invoke!(S, {
+        match noise_type {
+            NoiseType::Fbm(s) => get_4d_noise_helper_f32!(
+                s,
+                fbm_4d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Ridge(s) => get_4d_noise_helper_f32!(
+                s,
+                ridge_4d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Turbulence(s) => get_4d_noise_helper_f32!(
+                s,
+                turbulence_4d::<S>,
+                S::set1_ps(s.lacunarity),
+                S::set1_ps(s.gain),
+                s.octaves,
+                s.dim.seed
+            ),
+            NoiseType::Gradient(s) => get_4d_noise_helper_f32!(s, simplex_4d::<S>, s.dim.seed),
+            NoiseType::Cellular(_) => {
+                panic!("not implemented");
+            }
+            NoiseType::Cellular2(_) => {
+                panic!("not implemented");
+            }
         }
-        NoiseType::Cellular2(_) => {
-            panic!("not implemented");
-        }
-    }
+    })
 }

@@ -1,6 +1,6 @@
 use crate::noise::simplex_32::{simplex_1d, simplex_2d, simplex_3d, simplex_4d};
 
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 #[inline(always)]
 pub unsafe fn ridge_1d<S: Simd>(
@@ -10,19 +10,21 @@ pub unsafe fn ridge_1d<S: Simd>(
     octaves: u8,
     seed: i32,
 ) -> S::Vf32 {
-    let mut amp = S::set1_ps(1.0);
-    let mut result = S::sub_ps(S::set1_ps(1.0), S::abs_ps(simplex_1d::<S>(x, seed)));
+    simd_invoke!(S, {
+        let mut amp = S::set1_ps(1.0);
+        let mut result = S::sub_ps(S::set1_ps(1.0), S::abs_ps(simplex_1d::<S>(x, seed)));
 
-    for _ in 1..octaves {
-        x = S::mul_ps(x, lacunarity);
-        amp = S::mul_ps(amp, gain);
-        result = S::add_ps(
-            result,
-            S::sub_ps(S::set1_ps(1.0), S::abs_ps(simplex_1d::<S>(x, seed))),
-        );
-    }
+        for _ in 1..octaves {
+            x = S::mul_ps(x, lacunarity);
+            amp = S::mul_ps(amp, gain);
+            result = S::add_ps(
+                result,
+                S::sub_ps(S::set1_ps(1.0), S::abs_ps(simplex_1d::<S>(x, seed))),
+            );
+        }
 
-    result
+        result
+    })
 }
 
 #[inline(always)]
@@ -34,20 +36,22 @@ pub unsafe fn ridge_2d<S: Simd>(
     octaves: u8,
     seed: i32,
 ) -> S::Vf32 {
-    let mut result = S::sub_ps(S::set1_ps(1.0), S::abs_ps(simplex_2d::<S>(x, y, seed)));
-    let mut amp = S::set1_ps(1.0);
+    simd_invoke!(S, {
+        let mut result = S::sub_ps(S::set1_ps(1.0), S::abs_ps(simplex_2d::<S>(x, y, seed)));
+        let mut amp = S::set1_ps(1.0);
 
-    for _ in 1..octaves {
-        x = S::mul_ps(x, lac);
-        y = S::mul_ps(y, lac);
-        amp = S::mul_ps(amp, gain);
-        result = S::add_ps(
-            result,
-            S::fnmadd_ps(S::abs_ps(simplex_2d::<S>(x, y, seed)), amp, S::set1_ps(1.0)),
-        );
-    }
+        for _ in 1..octaves {
+            x = S::mul_ps(x, lac);
+            y = S::mul_ps(y, lac);
+            amp = S::mul_ps(amp, gain);
+            result = S::add_ps(
+                result,
+                S::fnmadd_ps(S::abs_ps(simplex_2d::<S>(x, y, seed)), amp, S::set1_ps(1.0)),
+            );
+        }
 
-    result
+        result
+    })
 }
 
 #[inline(always)]
@@ -60,25 +64,27 @@ pub unsafe fn ridge_3d<S: Simd>(
     octaves: u8,
     seed: i32,
 ) -> S::Vf32 {
-    let mut result = S::sub_ps(S::set1_ps(1.0), S::abs_ps(simplex_3d::<S>(x, y, z, seed)));
-    let mut amp = S::set1_ps(1.0);
+    simd_invoke!(S, {
+        let mut result = S::sub_ps(S::set1_ps(1.0), S::abs_ps(simplex_3d::<S>(x, y, z, seed)));
+        let mut amp = S::set1_ps(1.0);
 
-    for _ in 1..octaves {
-        x = S::mul_ps(x, lac);
-        y = S::mul_ps(y, lac);
-        z = S::mul_ps(z, lac);
-        amp = S::mul_ps(amp, gain);
-        result = S::add_ps(
-            result,
-            S::fnmadd_ps(
-                S::abs_ps(simplex_3d::<S>(x, y, z, seed)),
-                amp,
-                S::set1_ps(1.0),
-            ),
-        );
-    }
+        for _ in 1..octaves {
+            x = S::mul_ps(x, lac);
+            y = S::mul_ps(y, lac);
+            z = S::mul_ps(z, lac);
+            amp = S::mul_ps(amp, gain);
+            result = S::add_ps(
+                result,
+                S::fnmadd_ps(
+                    S::abs_ps(simplex_3d::<S>(x, y, z, seed)),
+                    amp,
+                    S::set1_ps(1.0),
+                ),
+            );
+        }
 
-    result
+        result
+    })
 }
 
 #[inline(always)]
@@ -92,26 +98,28 @@ pub unsafe fn ridge_4d<S: Simd>(
     octaves: u8,
     seed: i32,
 ) -> S::Vf32 {
-    let mut result = S::sub_ps(
-        S::set1_ps(1.0),
-        S::abs_ps(simplex_4d::<S>(x, y, z, w, seed)),
-    );
-    let mut amp = S::set1_ps(1.0);
-
-    for _ in 1..octaves {
-        x = S::mul_ps(x, lac);
-        y = S::mul_ps(y, lac);
-        z = S::mul_ps(z, lac);
-        w = S::mul_ps(w, lac);
-        amp = S::mul_ps(amp, gain);
-        result = S::add_ps(
-            result,
-            S::sub_ps(
-                S::set1_ps(1.0),
-                S::abs_ps(S::mul_ps(simplex_4d::<S>(x, y, z, w, seed), amp)),
-            ),
+    simd_invoke!(S, {
+        let mut result = S::sub_ps(
+            S::set1_ps(1.0),
+            S::abs_ps(simplex_4d::<S>(x, y, z, w, seed)),
         );
-    }
+        let mut amp = S::set1_ps(1.0);
 
-    result
+        for _ in 1..octaves {
+            x = S::mul_ps(x, lac);
+            y = S::mul_ps(y, lac);
+            z = S::mul_ps(z, lac);
+            w = S::mul_ps(w, lac);
+            amp = S::mul_ps(amp, gain);
+            result = S::add_ps(
+                result,
+                S::sub_ps(
+                    S::set1_ps(1.0),
+                    S::abs_ps(S::mul_ps(simplex_4d::<S>(x, y, z, w, seed), amp)),
+                ),
+            );
+        }
+
+        result
+    })
 }

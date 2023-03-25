@@ -1,4 +1,4 @@
-use simdeez::Simd;
+use simdeez::prelude::*;
 
 pub struct Hash3d<S: Simd> {
     // Masks guiding dimension selection
@@ -16,12 +16,14 @@ where
     S: Simd,
 {
     pub fn new(l8: S::Vf32, l4: S::Vf32, h12_or_14: S::Vf32, h1: S::Vf32, h2: S::Vf32) -> Self {
-        Self {
-            l8,
-            l4,
-            h12_or_14,
-            h1,
-            h2,
-        }
+        simd_invoke!(S, {
+            Self {
+                l8,
+                l4,
+                h12_or_14,
+                h1,
+                h2,
+            }
+        })
     }
 }
